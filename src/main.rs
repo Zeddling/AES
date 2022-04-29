@@ -1,3 +1,9 @@
+mod constants;
+mod decrypt;
+mod encrypt;
+mod key;
+mod utils;
+
 fn main() {
-    println!("Hello, world!");
+    encrypt::encrypt();
 }
