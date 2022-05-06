@@ -36,25 +36,18 @@ impl RoundKeys {
 
             self.generate_key_columns(sub_byte_vector, i);
         }
-
-        for i in 0..11 {
-            println!("Round {}: {:?}", i, &self.keys[i]);
-        }
     }
 
     /**
      * Performs rotation(left shift) on 3 word of current key
      */
     fn rot_word(&self, key_index: usize) -> Vec<String> {
-        let third_word = self.keys[key_index][3].clone();
+        let mut third_word = self.keys[key_index][3].clone();
 
-        //  left shift
-        vec![
-            third_word[1].clone(),
-            third_word[2].clone(),
-            third_word[3].clone(),
-            third_word[0].clone(),
-        ]
+        //  left cyclical rotation
+        third_word.rotate_left(1);
+
+        third_word
     }
 
     fn sub_byte(&self, rot: Vec<String>) -> Vec<String> {

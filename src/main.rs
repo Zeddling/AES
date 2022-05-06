@@ -5,5 +5,6 @@ mod key;
 mod utils;
 
 fn main() {
-    encrypt::encrypt();
+    let result = encrypt::encrypt();
+    println!("After encryption: \n{:?}", result);
 }
