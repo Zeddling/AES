@@ -1,28 +1,21 @@
-type Block = Vec<Vec<String>>;
-
-fn divide_into_state(plaintext: String) -> Vec<Vec<String>> {
-    let text_vect = crate::utils::to_vec(plaintext);
-    let text_chunks = text_vect.chunks(4);
-    let mut state: Block = vec![vec![String::new()]];
-
-    for chunk in text_chunks {
-        state.push(chunk.to_owned());
-    }
-
-    //  Remove initial block
-    state.remove(0);
-
-    return state;
-}
+use crate::utils::{divide_into_state, xor_matrices, Block};
 
 pub fn encrypt() -> Block {
     println!("Welcome!");
-    let data: (String, String) = crate::utils::get_input();
-    let plaintext = data.0;
+    let plaintext = crate::utils::get_input("Enter the plain text");
+    let mut passphrase = crate::utils::get_input("Enter the passphrase: (16 characters)");
+
+    while !crate::utils::input_is_valid(passphrase.as_str()) {
+        println!("Invalid input!");
+        passphrase = crate::utils::get_input("Enter the passphrase: (16 characters)");
+    }
+
+    //  Pad plaintext
+    // let normalized_plaintext = crate::utils::normalize(&plaintext);
 
     //  Create state
     let mut state: Block = divide_into_state(plaintext);
-    let key: Block = divide_into_state(data.1);
+    let key: Block = divide_into_state(passphrase);
 
     println!("State \n{:?}", state);
     println!("Key \n{:?}", key);
@@ -131,29 +124,8 @@ fn mix_columns(block: Block) -> Block {
             result_block[i][j] = crate::utils::vector_dot_product(
                 crate::constants::MIX_COLUMNS_MATRIX[j].to_vec(),
                 block[i].clone(),
+                true,
             )
-        }
-    }
-
-    result_block
-}
-
-fn xor_matrices(matrice1: Block, matrice2: Block) -> Block {
-    let mut result_block: Block = vec![vec![String::new(); 4]; 4];
-
-    for i in 0..4 {
-        for j in 0..4 {
-            let ij_matrice1 = crate::utils::decode_hex(matrice1[i][j].as_str()).unwrap();
-            let ij_matrice2 = crate::utils::decode_hex(matrice2[i][j].as_str()).unwrap();
-
-            let result_vector: Vec<u8> = ij_matrice1
-                .iter()
-                .zip(ij_matrice2.iter())
-                .map(|(&x1, &x2)| x1 ^ x2)
-                .collect();
-
-            let result_string = crate::utils::encode_hex(result_vector.as_slice());
-            result_block[i][j] = result_string;
         }
     }
 

@@ -1,29 +1,21 @@
 use std::io;
 use std::{fmt::Write, num::ParseIntError};
 
+pub type Block = Vec<Vec<String>>;
+
 /**
  * Returns 2 hexadecimal string arrays (plaintext, passphrase)
  *
  */
-pub fn get_input() -> (String, String) {
-    println!("Enter a message: ");
-    let mut message = String::new();
+pub fn get_input(msg: &str) -> String {
+    println!("{}", msg);
+    let mut input = String::new();
     io::stdin()
-        .read_line(&mut message)
+        .read_line(&mut input)
         .expect("Error reading input");
 
-    println!("Enter a passphrase: ");
-    let mut passphrase = String::new();
-    io::stdin()
-        .read_line(&mut passphrase)
-        .expect("Error reading input");
-
-    (
-        //hex::encode(message.trim().to_string()),
-        message.trim().to_string(),
-        //hex::encode(passphrase.trim().to_string()),
-        passphrase.trim().to_string(),
-    )
+    //hex::encode(message.trim().to_string()),
+    input.trim().to_string()
 }
 
 pub fn normalize(text: &String) -> String {
@@ -112,7 +104,7 @@ fn hex_multiplication(s1: String, s2: String) -> String {
         let mult_res = 2 * l2_num;
         let str_res = format!("{:x}", mult_res);
         if str_res.len() > 2 {
-            let new_res = handle_overflow(str_res);
+            let new_res = handle_overflow_string(str_res);
             return xor_two_hex_strings(new_res, s2);
         }
         return xor_two_hex_strings(str_res, s2);
@@ -125,16 +117,72 @@ fn hex_multiplication(s1: String, s2: String) -> String {
     let res = l1_num * l2_num;
     let res_str = format!("{:02x}", res);
     if res_str.len() > 2 {
-        return handle_overflow(res_str);
+        return handle_overflow_string(res_str);
     }
     res_str
+}
+
+/**
+ * TODO:
+ * https://crypto.stackexchange.com/questions/2569/how-does-one-implement-the-inverse-of-aes-mixcolumns
+ */
+fn hex_multiplication_decrypt(s1: &str, s2: String) -> String {
+    //  Decode second string first
+    let s2_bytes = decode_hex(s2.as_str()).unwrap();
+
+    let s2_str = from_bytes_to_string(s2_bytes);
+    let s2_num = s2_str.parse::<i64>().unwrap();
+
+    if s1 == crate::constants::NINE {
+        //  x*9=(((x*2)*2)*2)+x
+        let mut answer = s2_num * 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+
+        format!("{:02x}", answer ^ s2_num)
+    } else if s1 == crate::constants::ELEVEN {
+        //  x*11=((((x*2)*2)+x)*2)+x
+        let mut answer = s2_num * 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer ^= s2_num;
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+
+        return format!("{:02x}", answer ^ s2_num);
+    } else if s1 == crate::constants::THIRTEEN {
+        //  x*13=((((x*2)+x)*2)*2)+x
+        let mut answer = s2_num * 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer ^= s2_num;
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        return format!("{:02x}", answer ^ s2_num);
+    } else {
+        //  x*14=((((x*2)+x)*2)+x)*2
+        let mut answer = s2_num * 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer ^= s2_num;
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        answer ^= s2_num;
+        answer *= 2;
+        answer = check_overflow_hex_multiplication_decrypt(answer);
+        return format!("{:02x}", answer);
+    }
 }
 
 /**
  * Handles overflow after hex multiplication
  * More info: https://crypto.stackexchange.com/questions/57687/aes-encryption-algorithm-mix-columns
  */
-fn handle_overflow(x: String) -> String {
+fn handle_overflow_string(x: String) -> String {
     let handler = i64::from_str_radix("1b", 16).unwrap();
     let x = i64::from_str_radix(x.as_str(), 16).unwrap();
 
@@ -142,6 +190,26 @@ fn handle_overflow(x: String) -> String {
     let mut res_string = format!("{:02x}", res);
     res_string.remove(0);
     res_string
+}
+
+/**
+ * Handles overflow after hex multiplication
+ * More info: https://crypto.stackexchange.com/questions/57687/aes-encryption-algorithm-mix-columns
+ */
+fn handle_overflow_int(x: i64) -> i64 {
+    let handler = i64::from_str_radix("1b", 16).unwrap();
+
+    let res = x ^ handler;
+    let mut res_string = format!("{:02x}", res);
+    res_string.remove(0);
+    i64::from_str_radix(res_string.as_str(), 16).unwrap()
+}
+
+fn check_overflow_hex_multiplication_decrypt(x: i64) -> i64 {
+    if format!("{:02x}", x).len() > 2 {
+        return handle_overflow_int(x);
+    }
+    x
 }
 
 /**
@@ -156,11 +224,15 @@ fn vector_elements_xor(v: Vec<String>) -> String {
 /**
  * Performs dot product on the given hexadecimal vectors
  */
-pub fn vector_dot_product(v1: Vec<&str>, v2: Vec<String>) -> String {
+pub fn vector_dot_product(v1: Vec<&str>, v2: Vec<String>, is_encryption: bool) -> String {
     let mut mult_vect = vec![String::new(); 4];
 
     for i in 0..4 {
-        mult_vect[i] = hex_multiplication(v1[i].to_string().clone(), v2[i].clone());
+        if is_encryption {
+            mult_vect[i] = hex_multiplication(v1[i].to_string().clone(), v2[i].clone());
+        } else {
+            mult_vect[i] = hex_multiplication_decrypt(v1[i].clone(), v2[i].clone());
+        }
     }
 
     vector_elements_xor(mult_vect)
@@ -175,4 +247,48 @@ fn xor_two_hex_strings(s1: String, s2: String) -> String {
 
     let res_int = s1_ints ^ s2_ints;
     format!("{:02x}", res_int)
+}
+
+pub fn input_is_valid(text: &str) -> bool {
+    if text.len() != 32 {
+        return false;
+    }
+    true
+}
+
+pub fn xor_matrices(matrice1: Block, matrice2: Block) -> Block {
+    let mut result_block: Block = vec![vec![String::new(); 4]; 4];
+
+    for i in 0..4 {
+        for j in 0..4 {
+            let ij_matrice1 = decode_hex(matrice1[i][j].as_str()).unwrap();
+            let ij_matrice2 = decode_hex(matrice2[i][j].as_str()).unwrap();
+
+            let result_vector: Vec<u8> = ij_matrice1
+                .iter()
+                .zip(ij_matrice2.iter())
+                .map(|(&x1, &x2)| x1 ^ x2)
+                .collect();
+
+            let result_string = encode_hex(result_vector.as_slice());
+            result_block[i][j] = result_string;
+        }
+    }
+
+    result_block
+}
+
+pub fn divide_into_state(text: String) -> Vec<Vec<String>> {
+    let text_vect = to_vec(text);
+    let text_chunks = text_vect.chunks(4);
+    let mut state: Block = vec![vec![String::new()]];
+
+    for chunk in text_chunks {
+        state.push(chunk.to_owned());
+    }
+
+    //  Remove initial block
+    state.remove(0);
+
+    return state;
 }
