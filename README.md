@@ -1,5 +1,7 @@
 # Advanced Encryption Standard(AES)
 
+Code quality: <strong>Spaghetti with a chance of meatballs</strong>
+
 AES is a variant of the Rjindael block cipher.
 It's a symmetric key algorithm.
 It uses the [substitution-permutation network](https://en.wikipedia.org/wiki/Substitution%E2%80%93permutation_network) design principle which is a series of linked mathematical operations.
@@ -10,6 +12,10 @@ It uses the [substitution-permutation network](https://en.wikipedia.org/wiki/Sub
 
 AES has a fixed block size of 128 bits and a key size of 128, 192 or 256 bits.
 For more information: [here](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
+
+## Crates used
+
+[hex](https://crates.io/crates/hex) - Encoding and decoding data into/from hexadecimal representation.
 
 # Method of Implementation
 
@@ -44,3 +50,9 @@ It involves the result of multiplying the mix's column fixed matrix and the prov
 We finally perform an XOR on the current process' key and the mix_column's result.
 
 The first round only involves the round_key_xor whereas the last round does not involve the mix_columns transformation.
+
+### Decryption
+
+In the decryption algorithm, we have a separate SBOX matrix which is the inverse of the encryption SBOX. In the shift rows step, we perform a right circular shift of the word bytes by degree of the row's index. In mix columns stage, we use a matrix which is the inverse of the encryption mix column matrix. The round keys are also transformed using the inverse mix column except for the first and last round making the decryption algorithm to closely resembles the encryption algorithm.
+
+More information about the process can be found [here](https://csrc.nist.gov/csrc/media/publications/fips/197/final/documents/fips-197.pdf).

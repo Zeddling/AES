@@ -1,8 +1,9 @@
 use crate::utils::{divide_into_state, xor_matrices, Block};
 
-pub fn encrypt() -> Block {
+pub fn encrypt() -> String {
     println!("Welcome!");
     let plaintext = crate::utils::get_input("Enter the plain text");
+
     let mut passphrase = crate::utils::get_input("Enter the passphrase: (16 characters)");
 
     while !crate::utils::input_is_valid(passphrase.as_str()) {
@@ -11,33 +12,53 @@ pub fn encrypt() -> Block {
     }
 
     //  Pad plaintext
-    // let normalized_plaintext = crate::utils::normalize(&plaintext);
+    let normalized_plaintext = crate::utils::normalize(&plaintext);
+    println!("{}", normalized_plaintext);
 
     //  Create state
-    let mut state: Block = divide_into_state(plaintext);
-    let key: Block = divide_into_state(passphrase);
-
-    println!("State \n{:?}", state);
-    println!("Key \n{:?}", key);
+    let key: Block = divide_into_state(hex::encode(passphrase));
 
     let mut round_keys = crate::key::RoundKeys { keys: vec![key] };
     round_keys.generate();
 
-    //  Step 0
-    state = xor_matrices(round_keys.keys[0].clone(), state);
-    println!("{:?}", state);
+    let length = normalized_plaintext.len();
+    println!("{}", length);
 
-    //  Step 1 - 9
-    for i in 1..10 {
+    let num_blocks = length / 32;
+
+    let mut blocks = vec![vec![vec![String::new()]]];
+
+    for i in 0..num_blocks {
+        let left = i * 32;
+        let right = (i + 1) * 32;
+        let next = &normalized_plaintext[left..right];
+        blocks.push(divide_into_state(next.to_string()))
+    }
+
+    blocks.remove(0);
+    let mut cipher_blocks = vec![vec![vec![String::new()]]];
+
+    for i in 0..num_blocks {
+        let mut state = blocks[i].clone();
+
+        //  Step 0
+        state = xor_matrices(round_keys.keys[0].clone(), state);
+
+        //  Step 1 - 9
+        for i in 1..10 {
+            state = substitute_bytes(state);
+            state = shift_rows(state);
+            state = mix_columns(state);
+            state = xor_matrices(round_keys.keys[i].clone(), state);
+        }
+        //  Step 10
         state = substitute_bytes(state);
         state = shift_rows(state);
-        state = mix_columns(state);
-        state = xor_matrices(round_keys.keys[i].clone(), state);
+        cipher_blocks.push(xor_matrices(round_keys.keys[10].clone(), state));
     }
-    //  Step 10
-    state = substitute_bytes(state);
-    state = shift_rows(state);
-    xor_matrices(round_keys.keys[10].clone(), state)
+
+    cipher_blocks.remove(0);
+    cipher_to_string(cipher_blocks)
 }
 
 /**
@@ -130,4 +151,20 @@ fn mix_columns(block: Block) -> Block {
     }
 
     result_block
+}
+
+fn cipher_to_string(cipher_states: Vec<Block>) -> String {
+    let mut result_string = String::new();
+
+    for i in 0..cipher_states.len() {
+        let current = cipher_states[i].clone();
+        for j in 0..current.len() {
+            let word = current[j].clone();
+            for n in 0..word.len() {
+                result_string.push_str(word[n].as_str());
+            }
+        }
+    }
+
+    result_string
 }

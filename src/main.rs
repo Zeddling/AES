@@ -10,11 +10,11 @@ fn main() {
 
     if choice == "1".to_string() {
         let result = encrypt::encrypt();
-        println!("After encryption: \n{:?}", result);
+        println!("After encryption: \n{}", result);
     } else if choice == "2".to_string() {
         let result = decrypt::decrypt();
         println!("After decryption: \n{:?}", result);
     } else {
-        println!("Unknown operation. Shutting down")
+        println!("Unknown operation. Shutting down");
     }
 }

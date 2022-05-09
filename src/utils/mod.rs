@@ -26,11 +26,13 @@ pub fn normalize(text: &String) -> String {
         //  Will give us the required padding to make the
         //  string divisible by 16
         let padding = text_len % 16;
-        return format!("{:width$}", text, width = text_len + padding);
+        let res = format!("{:width$}", text, width = text_len + padding);
+        return hex::encode(res);
     } else {
         //  find next largest number then get modulus
         let padding = ((text_len / 16 + 1) * 16) % text_len;
-        return format!("{:width$}", text, width = text_len + padding);
+        let res = format!("{:width$}", text, width = text_len + padding);
+        return hex::encode(res);
     }
 }
 
@@ -250,7 +252,7 @@ fn xor_two_hex_strings(s1: String, s2: String) -> String {
 }
 
 pub fn input_is_valid(text: &str) -> bool {
-    if text.len() != 32 {
+    if text.len() != 16 {
         return false;
     }
     true

@@ -1,6 +1,6 @@
 use crate::utils::{divide_into_state, xor_matrices, Block};
 
-pub fn decrypt() -> Block {
+pub fn decrypt() -> String {
     let ciphertext = crate::utils::get_input("Enter the cipher text");
     let mut passphrase = crate::utils::get_input("Enter the passphrase: (16 characters)");
 
@@ -9,49 +9,53 @@ pub fn decrypt() -> Block {
         passphrase = crate::utils::get_input("Enter the passphrase: (16 characters)");
     }
 
-    let mut state: Block = divide_into_state(ciphertext);
-    let key: Block = divide_into_state(passphrase);
+    let key: Block = divide_into_state(hex::encode(passphrase));
 
     let mut round_keys = crate::key::RoundKeys { keys: vec![key] };
     round_keys.generate();
 
-    let mut i: usize = 10;
+    let length = ciphertext.len();
 
-    //  Step 0
-    println!("round[ {}] istart: {:?}", 0, round_keys.keys[i]);
-    state = xor_matrices(round_keys.keys[i].clone(), state);
-    i -= 1;
+    let num_blocks = length / 32;
 
-    //  Step 1 - 9
-    while i > 0 {
-        println!("round[ {}] istart: {:?}", 10 - i, state);
+    let mut blocks = vec![vec![vec![String::new()]]];
 
-        state = inv_substitute_bytes(state);
-        println!("round[ {}] is_box: {:?}", 10 - i, state);
-
-        state = inv_shift_rows(state);
-        println!("round[ {}] is_row: {:?}", 10 - i, state);
-
-        state = inv_mix_columns(state);
-        println!("round[ {}] im_col: {:?}", 10 - i, state);
-
-        let keyn = inv_mix_columns(round_keys.keys[i].clone());
-        println!("round[ {}] ik_sch: {:?}", 10 - i, keyn);
-
-        state = xor_matrices(keyn, state);
-        println!("round[ {}] ik_add: {:?}", 10 - i, state);
-
-        i -= 1;
+    for i in 0..num_blocks {
+        let left = i * 32;
+        let right = (i + 1) * 32;
+        let next = &ciphertext[left..right];
+        blocks.push(divide_into_state(next.to_string()))
     }
-    //  Step 10
-    state = inv_substitute_bytes(state);
-    println!("round[ {}] is_box: {:?}", 10, state);
 
-    state = inv_shift_rows(state);
-    println!("round[ {}] is_row: {:?}", 10, state);
+    blocks.remove(0);
 
-    println!("round[ {}] ik_sch: {:?}", 10, round_keys.keys[0].clone());
-    xor_matrices(round_keys.keys[0].clone(), state)
+    let mut plain_blocks = vec![vec![vec![String::new()]]];
+
+    for j in 0..num_blocks {
+        let mut i: usize = 10;
+        let mut state = blocks[j].clone();
+
+        //  Step 0
+        state = xor_matrices(round_keys.keys[i].clone(), state);
+        i -= 1;
+
+        //  Step 1 - 9
+        while i > 0 {
+            state = inv_substitute_bytes(state);
+            state = inv_shift_rows(state);
+            state = inv_mix_columns(state);
+            let keyn = inv_mix_columns(round_keys.keys[i].clone());
+            state = xor_matrices(keyn, state);
+            i -= 1;
+        }
+        //  Step 10
+        state = inv_substitute_bytes(state);
+        state = inv_shift_rows(state);
+        plain_blocks.push(xor_matrices(round_keys.keys[0].clone(), state));
+    }
+    plain_blocks.remove(0);
+    let hex_bytes = hex::decode(cipher_to_string(plain_blocks)).unwrap();
+    String::from_utf8(hex_bytes).unwrap().trim().to_string()
 }
 
 fn inv_shift_rows(block: Block) -> Block {
@@ -136,4 +140,20 @@ fn inv_mix_columns(block: Block) -> Block {
     }
 
     result_block
+}
+
+fn cipher_to_string(cipher_states: Vec<Block>) -> String {
+    let mut result_string = String::new();
+
+    for i in 0..cipher_states.len() {
+        let current = cipher_states[i].clone();
+        for j in 0..current.len() {
+            let word = current[j].clone();
+            for n in 0..word.len() {
+                result_string.push_str(word[n].as_str());
+            }
+        }
+    }
+
+    result_string
 }
